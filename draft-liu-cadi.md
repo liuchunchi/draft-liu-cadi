@@ -30,7 +30,7 @@ author:
   country: China
 
  -
-  ins: Y.Fu
+  ins: Y. Fu
   name: Yufan Fu
   organization: Huawei
   email: fuyufan2@huawei.com
@@ -148,6 +148,7 @@ Apart from the milestones and requirements discussed above, there are also a few
 * Legacy devices and systems often behave like blackboxes, many does not allow installing additional programs or tools on them.
 
 As a result, the ideal CADI tool should meet the following requirements:
+
 *  **Automated** scanning and inventory taking
 *  **Agnostic** to target object's system designs and architectures
 *  **Integrate** the result to existing network management and operations systems for unified presentation
@@ -176,6 +177,7 @@ There are many ways of doing discovering and identification. We catagorize them 
 CBOM-based identification is to empower cryptographic asset owners or vendors to explicitly declare cryptographic usage within their products, components, or services. Usually CBOM declaration is achieved through static code scanning and/or CI/CD integration, so we keep them in the same section.
 
 Scanning Methods:
+
 * **Static Code Scanning**:
     * SCA (Software Composition Analysis): Scan manifest files (like `package.json`, `requirements.txt`, or `pom.xml`) from the codebase to create CBOMS, usually for analyzing third-party libraries dependency.
     * SAST (Static Application Security Testing): Builds a Abstract Syntax Tree (AST) with parsed syntax and data flow of the target source code. It then uses AST to track call chain to end crypto library, track variables (data flow) from source to destination, do reference matching, etc.
@@ -185,6 +187,7 @@ Scanning Methods:
         * Binary / Image Scanning is used by IBM CBOMKit-Theia and CycloneDX Cdxgen.
 
 Tools and Modelling:
+
 * **IBM CBOMkit**, Static code level scanning (Hyperion) and Artifact level scanning (Theia) {{IBMCBOM}}: uses `implements` and `uses` relationship to create dependency diagram.
     * `implements`: Describes the list of protocols or algorithms this module implements.
     * `uses`: Describes what modules are used by this service.
@@ -233,17 +236,20 @@ Gaps: Obviously, this does not help with identifying the mass legacy devices, co
 Simulated handshake is a network-probing technique where a discovery tool acts as a client and intentionally initiates cryptographic protocol negotiations (e.g., TLS, SSH, IPsec) with enterprise network endpoints without completing the full data session. During the negotiation process, the discovery tool determines the specific cryptographic protocol versions, negotiation mechanisms, and ciphersuites supported by the endpoint. This is also known as *Active Probing*.
 
 Steps of simulated handshake include:
+
 1. **Port Scan:** The tool scans for typical ports for specific secure communication protocols (443 for HTTPS, 22 for SSH, etc)
 2. **Probing:** The tool generates a RFC-compliant connection initialization packet, including all currently standardized ciphersuites, and examine the response.
 3. **Response Extraction:** The target object respond with supported ciphersuites, following its own internal priority rules.
 4. **Parsing:** The tool intercepts this raw response and decodes it as cryptographic assets.
 
 This works for most secure protocols that includes negotiation:
+
 * IPSEC
 * TLS
 * SSH
 
 Pros and Cons/Gaps:
+
 * Strengths:
     * This kind of method does not require complex engineering refactoring. Since it is agnostic to the design of the target, it works best for the case where the manager operates vast heterogeneous devices from different vendors, versions and locations, hence telecommunications case.
     * This probing is one-time, thus it will not create unhandleable amount of probing packets.
@@ -252,6 +258,7 @@ Pros and Cons/Gaps:
     * Network management cannot know local application components that rests internally in the device and are not exposed over a socket.
 
 Tools:
+
 * Cisco Mercury project {{MERCURY}} provides an open source packet capture and analysis tool. It can read network packets, identify metadata of interest, and write out the metadata (including cryptographic-related) in JSON format.
 
 ### Traffic Pattern Analysis
@@ -259,11 +266,13 @@ Tools:
 Unlike simulated handshakes that actively query an endpoint, Traffic Pattern Analysis listens passively to live network traffic at strategic aggregation points. It infers cryptographic asset usage from protocol metadata, statistical characteristics, and behaviors without decrypting the underlying data payload.
 
 Methods of Traffic Pattern Analysis includes:
+
 * Listen to unencrypted negotiations like `clientHello`/`serverHello`, Server Name Indication (SNI), response of an unencrypted server digital certificate request, etc.
 * Listen to handshake fingerprints and compare them to existing patterns, as protocol implementations and behaviors are often rigid.
 * Listen to packet length and arrival time, do statistical pattern recognition.
 
 Pros and Cons/Gaps:
+
 * Strengths:
     * Similar to Simulated Handshakes, this kind of method is not intrusive and is agnostic to the design of the target.
 * The limitation of this method is that
@@ -276,11 +285,13 @@ Pros and Cons/Gaps:
 Process Identification requires Endpoint Detection and Response (EDR) installed to have cryptographic visibility inside of a system.
 
 Methods of Process Identification includes:
+
 * Kernel-Level System Call Auditing by deploying eBPF programs into the kernel space. These filters can capture kernel events to determine exactly which process (down to PID) have initiated an encrypted network communication.
 * Shared Library and Binary Hooking, by monitoring process load table to see if cryptographic dynamic libraries are loaded into the memory space.
 * Live Memory Scanning, by periodically scanning volatile memory for indication of creation of keys or signatures (as high-entropy memory segments), and then compare them with known patterns.
 
 Pros and Cons/Gaps:
+
 * Strengths:
     * Have deeper visibility for cryptographic assets within devices.
 * The limitation of this method is that
@@ -292,6 +303,7 @@ Pros and Cons/Gaps:
 The Configuration Extraction is a bit similar to the source code scanning. This section focuses more on the runtime configurations. In different use cases, the configuration extraction methods differs significantly. This section is to be extended.
 
 Methods of Configuration Extraction includes:
+
 * In network device management, NETCONF and YANG provide a standardized, model-driven management interface that enables programmable configuration and state validation. The network managing platform can define a YANG model and extract configurations from a device.
 * In cloud-native development, general `.yaml` configuration files, `.env` environment variables files, Kubernetes secret manifest, etc, can be extracted by administrative scripts or through management interfaces (e.g., AWS CloudControl, Kubernetes API).
 
@@ -305,14 +317,14 @@ This section defines the "ietf-network-inventory-crypto" YANG module. It augment
 
 The module complements CycloneDX CBOM {{CycloneDX}} rather than replacing it, as summarized in the table below. Asset types, properties, and relationships are aligned with CycloneDX 1.7, so that a vendor CBOM can be imported into a controller and controller data can be exported as a CBOM. This enables network-wide post-quantum cryptography (PQC) readiness assessment.
 
-|                                                              | CycloneDX CBOM                  | This Module                                  |
-| :----------------------------------------------------------- | :------------------------------ | :------------------------------------------- |
-| Form                                                         | Document (JSON, XML)            | Interface (NETCONF, RESTCONF)                |
-| Scope                                                        | One product or software version | All network elements managed by a controller |
-| Producer                                                     | Vendor or scanning tool         | Network controller                           |
-| Typical use                                                  | Supply chain, audit             | Operations, PQC readiness assessment         |
-| Linked to                                                    | Software components             | Network elements                             |
-| {: #tab-cbom-yang title="CBOM Documents and the Inventory Data Model"} |                                 |                                              |
+|                                                         | CycloneDX CBOM                  | This Module                                  |
+| :------------------------------------------------------ | :------------------------------ | :------------------------------------------- |
+| Form                                                    | Document (JSON, XML)            | Interface (NETCONF, RESTCONF)                |
+| Scope                                                   | One product or software version | All network elements managed by a controller |
+| Producer                                                | Vendor or scanning tool         | Network controller                           |
+| Typical use                                             | Supply chain, audit             | Operations, PQC readiness assessment         |
+| Linked to                                               | Software components             | Network elements                             |
+{: title="CBOM Documents and the Inventory Data Model"}
 
 ## Model Structure
 
@@ -503,7 +515,8 @@ module ietf-network-inventory-crypto {
      WG List:  <mailto:ivy@ietf.org>
 
      Editor:   Chunchi Peter Liu
-               <mailto:liuchunchi@huawei.com>";
+               <mailto:liuchunchi@huawei.com>
+
      Editor:   Yufan Fu
                <mailto:fuyufan2@huawei.com>";
   description
