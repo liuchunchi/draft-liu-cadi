@@ -60,14 +60,6 @@ informative:
   RFC8792:
   RFC9347:
   RFC9849:
-  NIST-SP-800-57:
-    title: "Recommendation for Key Management: Part 1 - General"
-    author:
-      org: National Institute of Standards and Technology
-    seriesinfo:
-      NIST SP: 800-57 Part 1 Rev. 5
-    date: 2020-05
-    target: https://doi.org/10.6028/NIST.SP.800-57pt1r5
   IANA-TLS:
     title: Transport Layer Security (TLS) Parameters
     author:
@@ -328,61 +320,54 @@ The module complements CycloneDX CBOM {{CycloneDX}} rather than replacing it, as
 
 ## Model Structure
 
-The module adds a "crypto-inventory" container to each network element, alongside the "components" list of the base model. An asset can thus refer to the components that implement it, e.g., a Hardware Security Module (HSM), or a cryptographic library ({{relationships}}). All data nodes of the container are read-only, as the augmented "network-inventory" container is "config false". It contains two lists:
+The module adds a "crypto-inventory" container to each network element, alongside the "components" list of the base model. All data nodes of the container are read-only, as the augmented "network-inventory" container is "config false". It contains two lists:
 
 "cbom-ref":
-: References to CBOM documents that describe the network element or one of its components. Each entry contains the BOM serial number, version, and specification version, retrieval URIs, a document hash for integrity verification, and the lifecycle phases in which the data was captured.
+: References to CBOMs that describe the network element or one of its components. Each entry contains the serial number and version of the CBOM, retrieval URIs, and a hash of the CBOM for integrity verification.
 
-"crypto-asset":
-: A structured list of the cryptographic assets of the network element, as described below.
+"crypto-object":
+: A structured list of the cryptographic assets of the network element, referred to as cryptographic objects in this module. An object can refer to the components that implement it, e.g., a Hardware Security Module (HSM) or a cryptographic library ({{relationships}}). This list is optional and is reported only if the server supports the "crypto-objects" feature. Otherwise, clients obtain the details from the CBOMs listed in "cbom-ref".
 
-### Cryptographic Assets
+### Cryptographic Objects
 
-Each asset is identified by an "asset-id" that is unique within the network element. The common attributes are:
+Each cryptographic object is identified by an "id" that is unique within the network element. The common attributes are:
 
-* "asset-type": one of the four CycloneDX asset types, i.e., algorithm, certificate, protocol, or related cryptographic material (e.g., keys, passwords, and tokens).
 * "uuid", "name", "alias", and "description": reused from the base model.
-* "oid": the object identifier (OID) of the asset, if any.
-* "bom-link": a CycloneDX BOM-Link to the element describing the asset in a CBOM listed in "cbom-ref", for traceability.
-* "usage": the purposes for which the asset is used, i.e., management plane, control plane, data plane, device identity, secure boot, or storage protection. CycloneDX has no equivalent; this network-specific context is needed to prioritize migration.
-* "discovery": the discovery methods ({{discovery}}), the confidence in the result, and the time at which the asset was last observed.
+* "usage": the purposes for which the object is used, i.e., management plane, control plane, or data plane. CycloneDX has no equivalent; this network-specific context is needed to prioritize migration.
+* "provided-by" and "depends-on": the relationships described in {{relationships}}.
+* "last-discovered": the time at which the object was last observed.
 
-Type-specific properties are reported in one of four containers, which are present only for the corresponding asset type:
+In CycloneDX, each cryptographic asset has exactly one of four asset types. The type is therefore modeled as a YANG choice: the container that is present indicates the type and contains the type-specific properties:
 
-* "algorithm-properties": primitive, algorithm family, parameter set, elliptic curve, mode, execution environment (e.g., software or hardware), certification level, classical security level, and NIST quantum security level, where the value 0 indicates a quantum-vulnerable algorithm.
-* "certificate-properties": serial number, subject, issuer, validity period, format, fingerprint, and state (e.g., active or revoked).
-* "related-material-properties": material type (e.g., private key), key state as defined in {{NIST-SP-800-57}}, size, format, creation and expiration time, and protection mechanism (e.g., HSM or Trusted Platform Module (TPM)).
-* "protocol-properties": protocol type, version, and cipher suites.
+* "algorithm": primitive (e.g., signature or kem), family, parameter set, elliptic curve, and quantum security level, where the value 0 indicates a quantum-vulnerable algorithm.
+* "certificate": subject, issuer, and validity period.
+* "related-material": material type (e.g., private key), size, expiration time, and protection mechanism.
+* "protocol": protocol type, version, and cipher suites.
 
-Only the CycloneDX properties needed for inventory and PQC readiness assessment are modeled. Further details remain available in the CBOM referenced by "cbom-ref" and can be added by augmentation.
+Only the CycloneDX properties needed for inventory and PQC readiness assessment are modeled. Further details remain available in the CBOMs referenced by "cbom-ref". Additional properties and types can be added by augmentation.
 
 ### Naming {#naming}
 
 CycloneDX 1.7 introduces the Cryptography Registry {{CDX-REGISTRY}}. It defines algorithm families together with naming patterns, and elliptic curves in namespaces of the defining organizations. The Registry evolves independently of the CycloneDX specification. This module uses it as follows:
 
-* "algorithm-family" SHOULD contain a family name from the Registry, e.g., "AES", "ML-KEM", or "SM4".
+* "family" SHOULD contain a family name from the Registry, e.g., "AES", "ML-KEM", or "SM4".
 * The "name" of an algorithm SHOULD follow the naming pattern of its family, e.g., "AES-128-GCM" or "ML-KEM-768".
-* "elliptic-curve" SHOULD contain a Registry curve name in the form "\<namespace>/\<curve>", e.g., "nist/P-256". A curve can have aliases in other namespaces, e.g., "secg/secp256r1" and "x962/prime256v1" for "nist/P-256"; consumers need to treat aliases as the same curve.
-* A hybrid scheme is reported as an algorithm whose "primitive" is "combiner" and whose "name" is the registered name of the hybrid, e.g., the TLS group name "X25519MLKEM768" {{IANA-TLS}}. No "algorithm-family" is reported for it; it depends on its component algorithms ({{relationships}}).
+* "curve" SHOULD contain a Registry curve name in the form "\<namespace>/\<curve>", e.g., "nist/P-256". A curve can have aliases in other namespaces, e.g., "secg/secp256r1" and "x962/prime256v1" for "nist/P-256"; consumers need to treat aliases as the same curve.
+* A hybrid scheme is reported as an algorithm whose "primitive" is "combiner" and whose "name" is the registered name of the hybrid, e.g., the TLS group name "X25519MLKEM768" {{IANA-TLS}}. No "family" is reported for it; it depends on its component algorithms ({{relationships}}).
 
 ### Relationships {#relationships}
 
 Two relationship types are defined, matching the two dependency types of CycloneDX:
 
 "provided-by":
-: From an asset to the components that implement or provide it, e.g., from a TLS implementation to a cryptographic library or a main processing unit. CycloneDX expresses this as "dependencies\[\].provides", in the opposite direction.
+: From a cryptographic object to the components that implement or provide it, e.g., from a TLS implementation to a cryptographic library or a main processing unit. CycloneDX expresses this as "dependencies\[\].provides", in the opposite direction.
 
 "depends-on":
-: From an asset to other assets that it uses or is bound to. CycloneDX expresses this as "dependencies\[\].dependsOn" or "relatedCryptographicAssets". The meaning of the relationship is given by the type of the referenced asset. For example, a certificate depends on an algorithm (its signature algorithm) and on a public key (its subject public key), a protocol depends on a certificate (its credential), and a combiner depends on its component algorithms.
+: From a cryptographic object to other cryptographic objects that it uses or is bound to. CycloneDX expresses this as "dependencies\[\].dependsOn" or "relatedCryptographicAssets". The meaning of the relationship is given by the type of the referenced object. For example, a certificate depends on an algorithm (its signature algorithm) and on a public key (its subject public key), a protocol depends on a certificate (its credential), and a combiner depends on its component algorithms.
 
-A relationship is recorded once, at the asset that uses or holds the other asset; reverse relationships are not recorded. The resulting graph is expected to be acyclic.
+A relationship is recorded once, at the object that uses or holds the other object; reverse relationships are not recorded. The resulting graph is expected to be acyclic.
 
-Two references are modeled as properties rather than as relationships:
-
-* "algorithm-ref" in "protocol-properties/cipher-suite" keeps the grouping of algorithms per cipher suite, as in CycloneDX "cipherSuites\[\].algorithms".
-* "algorithm-ref" in "related-material-properties/secured-by" identifies the algorithm protecting a key (e.g., a key-wrap algorithm). It is distinct from the algorithm with which the key is used, which is expressed by "depends-on".
-
-{{fig-rel}} shows the relationships of the example in {{example}}. Unlabeled arrows denote "depends-on", and the labeled arrow denotes "provided-by". Property references, such as "algorithm-ref" in a cipher suite, are not shown.
+{{fig-rel}} shows the relationships of the example in {{example}}. Unlabeled arrows denote "depends-on", and the labeled arrow denotes "provided-by".
 
 ~~~
   +------------+  provided-by   +-------------+
@@ -414,75 +399,54 @@ module: ietf-network-inventory-crypto
             /nwi:network-element:
     +--ro crypto-inventory!
        +--ro cbom-ref* [serial-number]
-       |  +--ro serial-number      cbom-serial-number
-       |  +--ro version?           uint32
-       |  +--ro spec-version?      string
-       |  +--ro uri*               inet:uri
-       |  +--ro document-hash
+       |  +--ro serial-number    cbom-serial-number
+       |  +--ro version?         uint32
+       |  +--ro uri*             inet:uri
+       |  +--ro hash
        |  |  +--ro algorithm?   string
        |  |  +--ro value?       string
-       |  +--ro lifecycle-phase*   string
-       |  +--ro component-ref?     leafref
-       +--ro crypto-asset* [asset-id]
-          +--ro asset-id       string
-          +--ro asset-type     identityref
-          +--ro uuid?          yang:uuid
-          +--ro name?          string
-          +--ro alias?         string
-          +--ro description?   string
-          +--ro oid?           yang:object-identifier
-          +--ro bom-link?      bom-link
-          +--ro usage*         identityref
-          +--ro provided-by*   leafref
-          +--ro depends-on*    leafref
-          +--ro discovery
-          |  +--ro method*            identityref
-          |  +--ro confidence?        decimal64
-          |  +--ro last-discovered?   yang:date-and-time
-          +--ro algorithm-properties
-          |  +--ro primitive?                     string
-          |  +--ro algorithm-family?              algorithm-family
-          |  +--ro parameter-set-identifier?      string
-          |  +--ro elliptic-curve?                elliptic-curve
-          |  +--ro mode?                          string
-          |  +--ro execution-environment?         string
-          |  +--ro certification-level*           string
-          |  +--ro classical-security-level?      uint16
-          |  +--ro nist-quantum-security-level?   uint8
-          +--ro certificate-properties
-          |  +--ro serial-number?        string
-          |  +--ro subject-name?         string
-          |  +--ro issuer-name?          string
-          |  +--ro not-valid-before?     yang:date-and-time
-          |  +--ro not-valid-after?      yang:date-and-time
-          |  +--ro certificate-format?   string
-          |  +--ro fingerprint
-          |  |  +--ro algorithm?   string
-          |  |  +--ro value?       string
-          |  +--ro state?                enumeration
-          +--ro related-material-properties
-          |  +--ro material-type?     string
-          |  +--ro state?             enumeration
-          |  +--ro size?              uint32
-          |  +--ro format?            string
-          |  +--ro creation-date?     yang:date-and-time
-          |  +--ro expiration-date?   yang:date-and-time
-          |  +--ro secured-by
-          |     +--ro mechanism?       string
-          |     +--ro algorithm-ref?   leafref
-          +--ro protocol-properties
-             +--ro protocol-type?   string
-             +--ro version?         string
-             +--ro cipher-suite* [name]
-                +--ro name             string
-                +--ro identifier*      string
-                +--ro algorithm-ref*   leafref
+       |  +--ro component-ref?   leafref
+       +--ro crypto-object* [id] {crypto-objects}?
+          +--ro id                 string
+          +--ro uuid?              yang:uuid
+          +--ro name?              string
+          +--ro alias?             string
+          +--ro description?       string
+          +--ro usage*             identityref
+          +--ro provided-by*       leafref
+          +--ro depends-on*        leafref
+          +--ro last-discovered?   yang:date-and-time
+          +--ro (type)
+             +--:(algorithm)
+             |  +--ro algorithm!
+             |     +--ro primitive?                string
+             |     +--ro family?                   algorithm-family
+             |     +--ro parameter-set?            string
+             |     +--ro curve?                    elliptic-curve
+             |     +--ro quantum-security-level?   uint8
+             +--:(certificate)
+             |  +--ro certificate!
+             |     +--ro subject?            string
+             |     +--ro issuer?             string
+             |     +--ro not-valid-before?   yang:date-and-time
+             |     +--ro not-valid-after?    yang:date-and-time
+             +--:(related-material)
+             |  +--ro related-material!
+             |     +--ro type?              string
+             |     +--ro size?              uint32
+             |     +--ro expiration-date?   yang:date-and-time
+             |     +--ro secured-by?        string
+             +--:(protocol)
+                +--ro protocol!
+                   +--ro type?           string
+                   +--ro version?        string
+                   +--ro cipher-suite*   string
 ~~~
 {: #fig-tree title="Tree Diagram of ietf-network-inventory-crypto"}
 
 ## YANG Module {#module}
 
-This module imports types from {{RFC9911}} and {{I-D.ietf-ivy-network-inventory-yang}}. It references {{CycloneDX}}, {{CDX-REGISTRY}}, and {{NIST-SP-800-57}}.
+This module imports types from {{RFC9911}} and {{I-D.ietf-ivy-network-inventory-yang}}. It references {{CycloneDX}} and {{CDX-REGISTRY}}.
 
 ~~~ yang
 <CODE BEGINS> file "ietf-network-inventory-crypto@2026-10-30.yang"
@@ -521,10 +485,11 @@ module ietf-network-inventory-crypto {
                <mailto:fuyufan2@huawei.com>";
   description
     "This module augments the base network inventory model with
-     a read-only inventory of the cryptographic assets of each
-     network element.  Asset types, properties, and relationships
-     are aligned with the Cryptography Bill of Materials (CBOM)
-     defined in CycloneDX 1.7 (ECMA-424).
+     a read-only cryptographic inventory of each network element.
+     The inventory consists of references to Cryptography Bills
+     of Materials (CBOMs) and, optionally, a structured list of
+     cryptographic objects.  Types, properties, and relationships
+     are aligned with CycloneDX 1.7 (ECMA-424).
 
      The key words 'MUST', 'MUST NOT', 'REQUIRED', 'SHALL',
      'SHALL NOT', 'SHOULD', 'SHOULD NOT', 'RECOMMENDED',
@@ -554,47 +519,24 @@ module ietf-network-inventory-crypto {
   }
 
   /*
-   * Identities
+   * Features
    */
 
-  identity crypto-asset-type {
+  feature crypto-objects {
     description
-      "Base identity for cryptographic asset types.";
-    reference
-      "ECMA-424: CycloneDX Bill of Materials Specification,
-       cryptoProperties.assetType";
+      "Indicates that the server supports reporting a structured
+       list of the cryptographic objects of each network element,
+       in addition to references to CBOMs.";
   }
 
-  identity algorithm {
-    base crypto-asset-type;
-    description
-      "A cryptographic algorithm, e.g., AES-128-GCM or
-       ML-KEM-768.";
-  }
-
-  identity certificate {
-    base crypto-asset-type;
-    description
-      "A certificate, e.g., an X.509 device certificate.";
-  }
-
-  identity protocol {
-    base crypto-asset-type;
-    description
-      "A cryptographic protocol, e.g., TLS, SSH, or IKEv2.";
-  }
-
-  identity related-crypto-material {
-    base crypto-asset-type;
-    description
-      "Material related to algorithms, certificates, or
-       protocols, e.g., a key, a password, or a token.";
-  }
+  /*
+   * Identities
+   */
 
   identity crypto-usage {
     description
       "Base identity for the purposes for which a cryptographic
-       asset is used on a network element.";
+       object is used on a network element.";
   }
 
   identity management-plane {
@@ -642,62 +584,6 @@ module ietf-network-inventory-crypto {
        key stores.";
   }
 
-  identity discovery-method {
-    description
-      "Base identity for the methods by which a cryptographic
-       asset is discovered.";
-  }
-
-  identity cbom-declaration {
-    base discovery-method;
-    description
-      "The asset is declared in a CBOM, e.g., one produced by
-       static code scanning, binary scanning, or CI/CD
-       integration.";
-    reference
-      "RFC XXXX: Cryptographic Asset Discovery and Inventory,
-       Section 4.1";
-  }
-
-  identity simulated-handshake {
-    base discovery-method;
-    description
-      "The asset is discovered by initiating protocol
-       negotiations with the network element.";
-    reference
-      "RFC XXXX: Cryptographic Asset Discovery and Inventory,
-       Section 4.2.1";
-  }
-
-  identity traffic-analysis {
-    base discovery-method;
-    description
-      "The asset is inferred from passively observed traffic.";
-    reference
-      "RFC XXXX: Cryptographic Asset Discovery and Inventory,
-       Section 4.2.2";
-  }
-
-  identity process-identification {
-    base discovery-method;
-    description
-      "The asset is identified by monitoring processes on the
-       network element.";
-    reference
-      "RFC XXXX: Cryptographic Asset Discovery and Inventory,
-       Section 4.2.3";
-  }
-
-  identity configuration-extraction {
-    base discovery-method;
-    description
-      "The asset is identified from the configuration of the
-       network element.";
-    reference
-      "RFC XXXX: Cryptographic Asset Discovery and Inventory,
-       Section 4.2.4";
-  }
-
   /*
    * Typedefs
    */
@@ -736,41 +622,6 @@ module ietf-network-inventory-crypto {
        serialNumber";
   }
 
-  typedef bom-link {
-    type string {
-      pattern 'urn:cdx:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-'
-            + '[0-9a-f]{4}-[0-9a-f]{12}/[1-9][0-9]*#.+';
-    }
-    description
-      "A CycloneDX BOM-Link to an element of a BOM, in the form
-       'urn:cdx:<serial-number>/<version>#<bom-ref>'.";
-    reference
-      "ECMA-424: CycloneDX Bill of Materials Specification,
-       BOM-Link";
-  }
-
-  /*
-   * Groupings
-   */
-
-  grouping hash {
-    description
-      "A hash value and the algorithm that produced it.";
-    leaf algorithm {
-      type string;
-      description
-        "The hash algorithm, using the CycloneDX hash algorithm
-         names, e.g., 'SHA-256' or 'SHA3-384'.";
-    }
-    leaf value {
-      type string {
-        pattern '[0-9a-fA-F]+';
-      }
-      description
-        "The hex-encoded hash value.";
-    }
-  }
-
   /*
    * Augmentation
    */
@@ -788,9 +639,8 @@ module ietf-network-inventory-crypto {
       list cbom-ref {
         key "serial-number";
         description
-          "References to CBOM documents that describe the
-           cryptographic assets of the network element or of one
-           of its components.";
+          "References to CBOMs that describe the network element
+           or one of its components.";
         leaf serial-number {
           type cbom-serial-number;
           description
@@ -803,32 +653,27 @@ module ietf-network-inventory-crypto {
           description
             "The version of the CBOM.";
         }
-        leaf spec-version {
-          type string;
-          description
-            "The CycloneDX specification version to which the CBOM
-             conforms, e.g., '1.7'.";
-        }
         leaf-list uri {
           type inet:uri;
           description
             "Locations from which the CBOM can be retrieved.";
         }
-        container document-hash {
+        container hash {
           description
-            "The hash of the CBOM document, for integrity
-             verification.";
-          uses hash;
-        }
-        leaf-list lifecycle-phase {
-          type string;
-          description
-            "The lifecycle phases in which the CBOM data was
-             captured, using the CycloneDX phase names, e.g.,
-             'build' or 'operations'.";
-          reference
-            "ECMA-424: CycloneDX Bill of Materials Specification,
-             metadata.lifecycles";
+            "The hash of the CBOM, for integrity verification.";
+          leaf algorithm {
+            type string;
+            description
+              "The hash algorithm, using the CycloneDX hash
+               algorithm names, e.g., 'SHA-256' or 'SHA3-384'.";
+          }
+          leaf value {
+            type string {
+              pattern '[0-9a-fA-F]+';
+            }
+            description
+              "The hex-encoded hash value.";
+          }
         }
         leaf component-ref {
           type leafref {
@@ -840,50 +685,33 @@ module ietf-network-inventory-crypto {
              the CBOM describes the whole network element.";
         }
       }
-      list crypto-asset {
-        key "asset-id";
+      list crypto-object {
+        if-feature "crypto-objects";
+        key "id";
         description
-          "The cryptographic assets of the network element.";
-        leaf asset-id {
+          "The cryptographic objects of the network element.";
+        leaf id {
           type string;
           description
-            "An identifier of the asset, unique within the network
-             element.";
-        }
-        leaf asset-type {
-          type identityref {
-            base crypto-asset-type;
-          }
-          mandatory true;
-          description
-            "The type of the asset.";
+            "An identifier of the cryptographic object, unique
+             within the network element.";
         }
         uses nwi:basic-common-entity-attributes {
           refine "name" {
             description
-              "The name of the asset.  The name of an algorithm
-               SHOULD follow the naming pattern of its family in
-               the CycloneDX Cryptography Registry, e.g.,
+              "The name of the cryptographic object.  The name of
+               an algorithm SHOULD follow the naming pattern of its
+               family in the CycloneDX Cryptography Registry, e.g.,
                'AES-128-GCM'.";
           }
-        }
-        leaf oid {
-          type yang:object-identifier;
-          description
-            "The object identifier of the asset.";
-        }
-        leaf bom-link {
-          type bom-link;
-          description
-            "A reference to the element describing this asset in a
-             CBOM listed in 'cbom-ref'.";
         }
         leaf-list usage {
           type identityref {
             base crypto-usage;
           }
           description
-            "The purposes for which the asset is used.";
+            "The purposes for which the cryptographic object is
+             used.";
         }
         leaf-list provided-by {
           type leafref {
@@ -892,306 +720,155 @@ module ietf-network-inventory-crypto {
           }
           description
             "The hardware or software components that implement or
-             provide the asset.";
+             provide the cryptographic object.";
         }
         leaf-list depends-on {
           type leafref {
-            path "../../crypto-asset/asset-id";
+            path "../../crypto-object/id";
           }
           description
-            "Other assets that this asset uses or is bound to.  The
-             meaning of the relationship is given by the type of the
-             referenced asset.";
+            "Other cryptographic objects that this object uses or is
+             bound to.  The meaning of the relationship is given by
+             the type of the referenced object.";
         }
-        container discovery {
+        leaf last-discovered {
+          type yang:date-and-time;
           description
-            "Information on how the asset was discovered.";
-          leaf-list method {
-            type identityref {
-              base discovery-method;
-            }
-            description
-              "The methods by which the asset was discovered.";
-          }
-          leaf confidence {
-            type decimal64 {
-              fraction-digits 2;
-              range "0..1";
-            }
-            description
-              "The overall confidence in the discovery result, where
-               1 means 100% confidence.";
-          }
-          leaf last-discovered {
-            type yang:date-and-time;
-            description
-              "The time at which the asset was last observed.";
-          }
+            "The time at which the cryptographic object was last
+             observed.";
         }
-        container algorithm-properties {
-          when "derived-from-or-self(../asset-type, "
-             + "'nwic:algorithm')";
+        choice type {
+          mandatory true;
           description
-            "Properties of an algorithm.";
-          leaf primitive {
-            type string;
+            "The type of the cryptographic object.  Exactly one type
+             is reported for each object.";
+          reference
+            "ECMA-424: CycloneDX Bill of Materials Specification,
+             cryptoProperties.assetType";
+          container algorithm {
+            presence
+              "Indicates that the object is an algorithm.";
             description
-              "The cryptographic primitive, using the CycloneDX
-               values, e.g., 'block-cipher', 'ae', 'signature',
-               'key-agree', 'kem', or 'combiner'.";
-          }
-          leaf algorithm-family {
-            type algorithm-family;
-            description
-              "The algorithm family.  Not present for combiners.";
-          }
-          leaf parameter-set-identifier {
-            type string;
-            description
-              "The parameter set, e.g., '128' for AES-128 or '768'
-               for ML-KEM-768.";
-          }
-          leaf elliptic-curve {
-            type elliptic-curve;
-            description
-              "The elliptic curve, if any.";
-          }
-          leaf mode {
-            type string;
-            description
-              "The mode of operation of a block cipher, using the
-               CycloneDX values, e.g., 'gcm' or 'cbc'.";
-          }
-          leaf execution-environment {
-            type string;
-            description
-              "The environment in which the algorithm is executed,
-               using the CycloneDX values, e.g.,
-               'software-plain-ram' or 'hardware'.";
-          }
-          leaf-list certification-level {
-            type string;
-            description
-              "The certifications of the implementation, using the
-               CycloneDX values, e.g., 'fips140-3-l1'.";
-          }
-          leaf classical-security-level {
-            type uint16;
-            units "bits";
-            description
-              "The classical security level of the algorithm.";
-          }
-          leaf nist-quantum-security-level {
-            type uint8 {
-              range "0..5";
-            }
-            description
-              "The NIST post-quantum security strength category.
-               The value 0 indicates that none of the categories is
-               met, i.e., the algorithm is quantum-vulnerable.";
-            reference
-              "ECMA-424: CycloneDX Bill of Materials Specification,
-               algorithmProperties.nistQuantumSecurityLevel";
-          }
-        }
-        container certificate-properties {
-          when "derived-from-or-self(../asset-type, "
-             + "'nwic:certificate')";
-          description
-            "Properties of a certificate.";
-          leaf serial-number {
-            type string;
-            description
-              "The serial number assigned by the issuer.";
-          }
-          leaf subject-name {
-            type string;
-            description
-              "The subject name.";
-          }
-          leaf issuer-name {
-            type string;
-            description
-              "The issuer name.";
-          }
-          leaf not-valid-before {
-            type yang:date-and-time;
-            description
-              "The start of the validity period.";
-          }
-          leaf not-valid-after {
-            type yang:date-and-time;
-            description
-              "The end of the validity period.";
-          }
-          leaf certificate-format {
-            type string;
-            description
-              "The certificate format, e.g., 'X.509'.";
-          }
-          container fingerprint {
-            description
-              "The fingerprint of the certificate.";
-            uses hash;
-          }
-          leaf state {
-            type enumeration {
-              enum pre-activation {
-                description
-                  "Issued but not yet authorized for use.";
-              }
-              enum active {
-                description
-                  "Authorized for use.";
-              }
-              enum suspended {
-                description
-                  "Use temporarily suspended.";
-              }
-              enum deactivated {
-                description
-                  "Not to be used to apply cryptographic
-                   protection.";
-              }
-              enum revoked {
-                description
-                  "Revoked by the issuer before its expiration.";
-              }
-              enum destroyed {
-                description
-                  "Destroyed.";
-              }
-            }
-            description
-              "The current state of the certificate.";
-            reference
-              "ECMA-424: CycloneDX Bill of Materials Specification,
-               certificateState";
-          }
-        }
-        container related-material-properties {
-          when "derived-from-or-self(../asset-type, "
-             + "'nwic:related-crypto-material')";
-          description
-            "Properties of related cryptographic material.";
-          leaf material-type {
-            type string;
-            description
-              "The type of the material, using the CycloneDX values,
-               e.g., 'private-key', 'public-key', 'secret-key', or
-               'password'.";
-          }
-          leaf state {
-            type enumeration {
-              enum pre-activation {
-                description
-                  "Generated but not yet authorized for use.";
-              }
-              enum active {
-                description
-                  "Authorized for use.";
-              }
-              enum suspended {
-                description
-                  "Use temporarily suspended.";
-              }
-              enum deactivated {
-                description
-                  "Not to be used to apply cryptographic
-                   protection.";
-              }
-              enum compromised {
-                description
-                  "Known or suspected to be compromised.";
-              }
-              enum destroyed {
-                description
-                  "Destroyed.";
-              }
-            }
-            description
-              "The state of the key.";
-            reference
-              "NIST SP 800-57 Part 1 Rev. 5, Section 7";
-          }
-          leaf size {
-            type uint32;
-            units "bits";
-            description
-              "The size of the material.";
-          }
-          leaf format {
-            type string;
-            description
-              "The encoding format, e.g., 'PEM' or 'DER'.";
-          }
-          leaf creation-date {
-            type yang:date-and-time;
-            description
-              "The time at which the material was created.";
-          }
-          leaf expiration-date {
-            type yang:date-and-time;
-            description
-              "The time at which the material expires.";
-          }
-          container secured-by {
-            description
-              "The mechanism protecting the material.";
-            leaf mechanism {
+              "A cryptographic algorithm, e.g., AES-128-GCM or
+               ML-KEM-768.";
+            leaf primitive {
               type string;
               description
-                "The protection mechanism, e.g., 'HSM', 'TPM',
-                 'Software', or 'None'.";
+                "The cryptographic primitive, using the CycloneDX
+                 values, e.g., 'block-cipher', 'ae', 'signature',
+                 'key-agree', 'kem', or 'combiner'.";
             }
-            leaf algorithm-ref {
-              type leafref {
-                path "../../../../crypto-asset/asset-id";
-              }
+            leaf family {
+              type algorithm-family;
               description
-                "The algorithm used to protect the material, e.g.,
-                 a key-wrap algorithm.";
+                "The algorithm family.  Not present for combiners.";
             }
-          }
-        }
-        container protocol-properties {
-          when "derived-from-or-self(../asset-type, "
-             + "'nwic:protocol')";
-          description
-            "Properties of a protocol.";
-          leaf protocol-type {
-            type string;
-            description
-              "The protocol, using the CycloneDX values, e.g.,
-               'tls', 'ssh', 'ipsec', 'ike', 'dtls', or 'quic'.";
-          }
-          leaf version {
-            type string;
-            description
-              "The protocol version, e.g., '1.3'.";
-          }
-          list cipher-suite {
-            key "name";
-            description
-              "The cipher suites supported by the protocol.";
-            leaf name {
+            leaf parameter-set {
               type string;
               description
-                "The cipher suite name, e.g.,
-                 'TLS_AES_256_GCM_SHA384'.";
+                "The parameter set, e.g., '128' for AES-128 or '768'
+                 for ML-KEM-768.";
             }
-            leaf-list identifier {
-              type string;
+            leaf curve {
+              type elliptic-curve;
               description
-                "The code points of the cipher suite, e.g.,
-                 '0x13,0x02'.";
+                "The elliptic curve, if any.";
             }
-            leaf-list algorithm-ref {
-              type leafref {
-                path "../../../../crypto-asset/asset-id";
+            leaf quantum-security-level {
+              type uint8 {
+                range "0..6";
               }
               description
-                "The algorithms that make up the cipher suite.";
+                "The NIST security strength category against quantum
+                 attacks.  The value 0 indicates that none of the
+                 categories is met, i.e., the algorithm is
+                 quantum-vulnerable.";
+              reference
+                "ECMA-424: CycloneDX Bill of Materials Specification,
+                 algorithmProperties.nistQuantumSecurityLevel";
+            }
+          }
+          container certificate {
+            presence
+              "Indicates that the object is a certificate.";
+            description
+              "A certificate, e.g., an X.509 device certificate.";
+            leaf subject {
+              type string;
+              description
+                "The subject name.";
+            }
+            leaf issuer {
+              type string;
+              description
+                "The issuer name.";
+            }
+            leaf not-valid-before {
+              type yang:date-and-time;
+              description
+                "The start of the validity period.";
+            }
+            leaf not-valid-after {
+              type yang:date-and-time;
+              description
+                "The end of the validity period.";
+            }
+          }
+          container related-material {
+            presence
+              "Indicates that the object is related cryptographic
+               material.";
+            description
+              "Material related to algorithms, certificates, or
+               protocols, e.g., a key, a password, or a token.";
+            leaf type {
+              type string;
+              description
+                "The type of the material, using the CycloneDX
+                 values, e.g., 'private-key', 'public-key',
+                 'secret-key', or 'password'.";
+            }
+            leaf size {
+              type uint32;
+              units "bits";
+              description
+                "The size of the material.";
+            }
+            leaf expiration-date {
+              type yang:date-and-time;
+              description
+                "The time at which the material expires.";
+            }
+            leaf secured-by {
+              type string;
+              description
+                "The mechanism protecting the material, using the
+                 CycloneDX values, e.g., 'HSM', 'TPM', 'Software',
+                 or 'None'.";
+            }
+          }
+          container protocol {
+            presence
+              "Indicates that the object is a protocol.";
+            description
+              "A cryptographic protocol, e.g., TLS, SSH, or IKEv2.";
+            leaf type {
+              type string;
+              description
+                "The protocol, using the CycloneDX values, e.g.,
+                 'tls', 'ssh', 'ipsec', 'ike', 'dtls', or 'quic'.";
+            }
+            leaf version {
+              type string;
+              description
+                "The protocol version, e.g., '1.3'.";
+            }
+            leaf-list cipher-suite {
+              type string;
+              description
+                "The cipher suites supported by the protocol, e.g.,
+                 'TLS_AES_256_GCM_SHA384'.  The algorithms of the
+                 cipher suites are reported using 'depends-on'.";
             }
           }
         }
@@ -1209,7 +886,16 @@ As with the base model, this module provides a read-only view of the cryptograph
 
 The inventory needs to be updated when cryptographic assets change, e.g., after a software upgrade, a certificate renewal, or a configuration change. The "last-discovered" leaf allows consumers to detect stale entries.
 
-Network-wide inventories can be large. Clients can use protocol filtering mechanisms, e.g., subtree or XPath filtering in NETCONF, to retrieve only the data they need, such as the algorithms whose "nist-quantum-security-level" is 0.
+Network-wide inventories can be large. Clients can use protocol filtering mechanisms, e.g., subtree or XPath filtering in NETCONF, to retrieve only the data they need, such as the algorithms whose "quantum-security-level" is 0.
+
+## Open Issues
+
+This section is to be removed before publication.
+
+The authors seek feedback from the WG on the following issues:
+
+* Content: whether the model includes the "crypto-object" list as an optional feature, as currently proposed, or is limited to CBOM references, leaving the content to the CBOMs.
+* Placement: whether cryptographic objects are modeled as a separate list of each network element, as currently proposed, or as a new class of components in the base model. The "parent" of a component denotes containment, whereas a cryptographic object is implemented by, used by, or bound to components.
 
 # Potentially Related Working Groups
 
@@ -1233,7 +919,7 @@ TBD
 
 # Example {#example}
 
-{{fig-example}} shows an instance of the module in JSON encoding {{RFC7951}}. Network element "ne-1" runs a TLS 1.3 implementation that is used on the management plane and provided by component "mpu-1". The TLS implementation depends on a device certificate and on the hybrid key exchange X25519MLKEM768. The key exchange includes ML-KEM-768 (NIST quantum security level 3), but the device certificate still relies on ECDSA with P-256, which is quantum-vulnerable (level 0). AES-256-GCM was imported from the vendor CBOM listed in "cbom-ref".
+{{fig-example}} shows an instance of the module in JSON encoding {{RFC7951}}. Network element "ne-1" is described by a vendor CBOM listed in "cbom-ref". It runs a TLS 1.3 implementation that is used on the management plane and provided by component "mpu-1". The TLS implementation depends on a device certificate, on the hybrid key exchange X25519MLKEM768, and on AES-256-GCM. The key exchange includes ML-KEM-768 (quantum security level 3), but the device certificate still relies on ECDSA with P-256, which is quantum-vulnerable (level 0).
 
 ~~~
 =============== NOTE: '\' line wrapping per RFC 8792 ================
@@ -1258,107 +944,80 @@ TBD
                 "serial-number": "urn:uuid:3e671687-395b-41f5-a30f-\
                    a58921a69b79",
                 "version": 1,
-                "spec-version": "1.7",
-                "uri": ["https://vendor.example.com/ne-1.cdx.json"],
-                "lifecycle-phase": ["build"]
+                "uri": ["https://vendor.example.com/ne-1.cdx.json"]
               }
             ],
-            "crypto-asset": [
+            "crypto-object": [
               {
-                "asset-id": "tls-1",
-                "asset-type": "protocol",
+                "id": "tls-1",
                 "name": "TLSv1.3",
                 "usage": ["management-plane"],
                 "provided-by": ["mpu-1"],
-                "depends-on": ["dev-cert", "x25519mlkem768"],
-                "discovery": {
-                  "method": ["simulated-handshake"],
-                  "confidence": "1.0"
-                },
-                "protocol-properties": {
-                  "protocol-type": "tls",
+                "depends-on": ["dev-cert", "x25519mlkem768",
+                               "aes-256-gcm"],
+                "protocol": {
+                  "type": "tls",
                   "version": "1.3",
-                  "cipher-suite": [
-                    {
-                      "name": "TLS_AES_256_GCM_SHA384",
-                      "identifier": ["0x13,0x02"],
-                      "algorithm-ref": ["aes-256-gcm"]
-                    }
-                  ]
+                  "cipher-suite": ["TLS_AES_256_GCM_SHA384"]
                 }
               },
               {
-                "asset-id": "x25519mlkem768",
-                "asset-type": "algorithm",
+                "id": "x25519mlkem768",
                 "name": "X25519MLKEM768",
                 "depends-on": ["x25519", "ml-kem-768"],
-                "algorithm-properties": {
+                "algorithm": {
                   "primitive": "combiner"
                 }
               },
               {
-                "asset-id": "x25519",
-                "asset-type": "algorithm",
+                "id": "x25519",
                 "name": "x25519",
-                "algorithm-properties": {
+                "algorithm": {
                   "primitive": "key-agree",
-                  "algorithm-family": "ECDH",
-                  "elliptic-curve": "other/Curve25519",
-                  "nist-quantum-security-level": 0
+                  "family": "ECDH",
+                  "curve": "other/Curve25519",
+                  "quantum-security-level": 0
                 }
               },
               {
-                "asset-id": "ml-kem-768",
-                "asset-type": "algorithm",
+                "id": "ml-kem-768",
                 "name": "ML-KEM-768",
-                "algorithm-properties": {
+                "algorithm": {
                   "primitive": "kem",
-                  "algorithm-family": "ML-KEM",
-                  "parameter-set-identifier": "768",
-                  "nist-quantum-security-level": 3
+                  "family": "ML-KEM",
+                  "parameter-set": "768",
+                  "quantum-security-level": 3
                 }
               },
               {
-                "asset-id": "aes-256-gcm",
-                "asset-type": "algorithm",
+                "id": "aes-256-gcm",
                 "name": "AES-256-GCM",
-                "bom-link": "urn:cdx:3e671687-395b-41f5-a30f-\
-                   a58921a69b79/1#aes-256-gcm",
-                "discovery": {
-                  "method": ["cbom-declaration"]
-                },
-                "algorithm-properties": {
+                "algorithm": {
                   "primitive": "ae",
-                  "algorithm-family": "AES",
-                  "parameter-set-identifier": "256",
-                  "mode": "gcm",
-                  "execution-environment": "software-plain-ram",
-                  "nist-quantum-security-level": 5
+                  "family": "AES",
+                  "parameter-set": "256",
+                  "quantum-security-level": 5
                 }
               },
               {
-                "asset-id": "dev-cert",
-                "asset-type": "certificate",
+                "id": "dev-cert",
                 "name": "ne-1 device certificate",
                 "usage": ["device-identity", "management-plane"],
                 "depends-on": ["ecdsa-p-256"],
-                "certificate-properties": {
-                  "subject-name": "CN=ne-1.example.com",
-                  "issuer-name": "CN=Example CA",
-                  "not-valid-after": "2028-01-01T00:00:00Z",
-                  "certificate-format": "X.509",
-                  "state": "active"
+                "certificate": {
+                  "subject": "CN=ne-1.example.com",
+                  "issuer": "CN=Example CA",
+                  "not-valid-after": "2028-01-01T00:00:00Z"
                 }
               },
               {
-                "asset-id": "ecdsa-p-256",
-                "asset-type": "algorithm",
+                "id": "ecdsa-p-256",
                 "name": "ECDSA-P-256",
-                "algorithm-properties": {
+                "algorithm": {
                   "primitive": "signature",
-                  "algorithm-family": "ECDSA",
-                  "elliptic-curve": "nist/P-256",
-                  "nist-quantum-security-level": 0
+                  "family": "ECDSA",
+                  "curve": "nist/P-256",
+                  "quantum-security-level": 0
                 }
               }
             ]
