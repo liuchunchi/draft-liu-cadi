@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2026-11-05T04:49:20.825735+00:00",
+  "timestamp": "2026-11-08T03:59:53.653661+00:00",
   "repo": "liuchunchi/draft-liu-cadi",
   "labels": [
     {
@@ -89,6 +89,48 @@
           "body": "lgtm",
           "createdAt": "2026-10-31T09:03:54Z",
           "updatedAt": "2026-10-31T09:03:54Z",
+          "comments": []
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "id": "PR_kwDOTPVpP88AAAABNOC_jg",
+      "title": "1106-Update YANG data model for cryptographic inventory",
+      "url": "https://github.com/liuchunchi/draft-liu-cadi/pull/2",
+      "state": "MERGED",
+      "author": "VincentFvan",
+      "authorAssociation": "CONTRIBUTOR",
+      "assignees": [],
+      "labels": [],
+      "body": "1106-Update YANG data model for cryptographic inventory",
+      "createdAt": "2026-11-06T02:52:29Z",
+      "updatedAt": "2026-11-06T12:05:03Z",
+      "baseRepository": "liuchunchi/draft-liu-cadi",
+      "baseRefName": "main",
+      "baseRefOid": "3ace88b4d9ca13e73635abb5e0b81d5f0634f812",
+      "headRepository": "VincentFvan/draft-liu-cadi",
+      "headRefName": "cadi-yang-inventory-261106",
+      "headRefOid": "141f36d5d4f4582b45ba4deaa5ed44f2ded2614e",
+      "closedAt": "2026-11-06T12:05:03Z",
+      "mergedAt": "2026-11-06T12:05:03Z",
+      "mergedBy": "liuchunchi",
+      "mergeCommit": {
+        "oid": "07b9953eb61edcdd1555e4864111b19ef26d427c"
+      },
+      "comments": [],
+      "reviews": [
+        {
+          "id": "PRR_kwDOTPVpP88AAAABWbIjtw",
+          "commit": {
+            "abbreviatedOid": "141f36d"
+          },
+          "author": "liuchunchi",
+          "authorAssociation": "OWNER",
+          "state": "APPROVED",
+          "body": "",
+          "createdAt": "2026-11-06T12:04:49Z",
+          "updatedAt": "2026-11-06T12:04:49Z",
           "comments": []
         }
       ]
